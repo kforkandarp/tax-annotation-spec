@@ -29,7 +29,7 @@ This specification decouples **form layout metadata** from the **execution engin
 
 ## 3. High-Level Architecture
 
-![High-Level Architecture](diagram1.png)
+![High-Level Architecture](assets/diagram1.png)
 
 ### Schema vs. Form Annotation Relationship
 
@@ -50,7 +50,7 @@ This specification decouples **form layout metadata** from the **execution engin
 
 ## 4. Processing Pipeline
 
-![Internal Processing Pipeline](diagram2.png)
+![Internal Processing Pipeline](assets/diagram2.png)
 
 The internal pipeline processes each annotation field through isolated stages:
 
