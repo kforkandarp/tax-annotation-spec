@@ -1,63 +1,69 @@
 # Tax Form Annotation Specification & Reference Pipeline
 
-A declarative, language-independent specification and Python reference implementation for resolving structured JSON input data, evaluating conditional visibility, formatting values, and rendering fields onto PDF form templates.
+A declarative, language-independent specification and Python reference implementation for resolving structured JSON data, evaluating conditional visibility, formatting values, and rendering fields onto PDF form templates.
 
 ---
 
 ## 1. Project Overview
-Filling tax forms programmatically requires decoupling data extraction and rendering rules from backend database schemas, application logic, and specific programming languages. 
 
-This repository establishes a **JSON-based declarative annotation contract** that describes:
-- **What** value to extract using a restricted JSONPath subset.
-- **When** to render it using conditional evaluation rules.
-- **How** to format it (text, currency, percentage, date, etc.).
-- **Where** to place it using explicit PDF point bounding boxes.
-- **How** to style it (font size, alignment).
+Filling structured forms programmatically often leads to tight coupling between business data models, form layouts, and rendering engines.
 
-The JSON Schema is the authoritative, platform-agnostic contract. The Python codebase serves as a reference implementation.
+This project establishes a **JSON-based declarative annotation contract** that decouples:
+* **What** value to extract using a restricted JSONPath subset.
+* **When** to render it using conditional evaluation rules.
+* **How** to format it (text, currency, percentage, date, etc.).
+* **Where** to place it using explicit PDF point bounding boxes.
+* **How** to style it (font size, text alignment).
+
+The JSON Schema is the authoritative, platform-agnostic contract. The accompanying Python codebase provides a reference implementation capable of processing any document matching the contract.
 
 ---
 
 ## 2. Problem Being Solved
-Tax forms are strict visual grid layouts with distinct presentation requirements. Hardcoding coordinate mapping or data-formatting rules into application code creates tight coupling, prevents cross-language interoperability, and makes tax year or form revision updates difficult to maintain. 
 
-This specification solves this problem by defining a portable declarative schema that separates form layout definitions from data ingestion and PDF rendering engines.
+Tax forms and governmental documents are rigid visual grid layouts with strict spatial and presentation requirements. Hardcoding coordinate logic into backend code creates brittle pipelines that break across form revisions, multilingual adaptations, and different backend languages.
+
+This specification decouples **form layout metadata** from the **execution engine**. The backend simply supplies raw data, the template supplies visual assets, and the annotation document supplies the declarative binding layer.
 
 ---
 
 ## 3. High-Level Architecture
-The system is built as a pipeline of decoupled components with strict single-responsibility boundaries:
 
-```
-Structured Input Data + Annotation Document + PDF Template
-↓
-[ Models ]            (Pydantic validation)
-↓
-[ Resolver ]          (Restricted JSONPath traversal)
-↓
-[ Conditions ]         (Visibility evaluation)
-↓
-[ Formatter ]          (Precision display formatting)
-↓
-[ Processor ]          (Orchestration & default merging)
-↓
-[ Renderer ]          (PyMuPDF coordinate placement)
-↓
-Annotated Output PDF
-```
+![High-Level Architecture](diagram1.png)
 
-### Component Responsibilities
-- **`src.models`**: Pydantic v2 domain representations mirroring the JSON Schema with strict closed-model (`extra="forbid"`) boundaries and ID uniqueness enforcement.
-- **`src.resolver`**: Traverses raw JSON dictionaries and lists using a restricted JSONPath subset without external dependencies.
-- **`src.conditions`**: Evaluates single comparison rules (`equals`, `greater_than`, etc.) against resolved data to determine field visibility.
-- **`src.formatter`**: Converts Python primitives into presentation strings using `Decimal` fixed-point arithmetic.
-- **`src.processor`**: Coordinates condition checks, source resolution, single-level default merging, and formatting to produce a render-ready `ProcessedField`.
-- **`src.renderer`**: Uses PyMuPDF to draw `ProcessedField` values inside bounded rectangles on the target PDF template.
-- **`src.pipeline`**: Top-level entry point coordinating document-level processing and rendering.
+### Schema vs. Form Annotation Relationship
+
+* **`annotation.schema.json`**: The contract and rulebook. It defines valid syntax, supported types, coordinate bounds, and validation constraints. It does not contain any form-specific layout data.
+* **`form_annotations.json`**: A concrete instance of the contract for a specific form and revision (e.g., a generic tax document). Different forms or tax years require only new annotation JSON documents—the underlying engine remains unchanged.
+
+### Component Breakdown
+
+* **`src/models.py`**: Pydantic v2 models validating documents against the schema with closed-model boundaries (`extra="forbid"`) and document-level ID uniqueness checks.
+* **`src/resolver.py`**: A zero-dependency resolver for extracting values from nested dictionaries and arrays using a restricted JSONPath subset.
+* **`src/conditions.py`**: Evaluates comparison operations against resolved data to determine field visibility.
+* **`src/formatter.py`**: Converts raw Python primitives into formatted strings using fixed-point `Decimal` arithmetic.
+* **`src/processor.py`**: Merges document-level defaults with field-level overrides, resolving data and evaluating conditions into an intermediate `ProcessedField`.
+* **`src/renderer.py`**: Uses PyMuPDF to place `ProcessedField` text strings into target PDF bounding boxes.
+* **`src/pipeline.py`**: Coordinates document-level execution from raw input to the final PDF.
 
 ---
 
-## 4. Project Structure
+## 4. Processing Pipeline
+
+![Internal Processing Pipeline](diagram2.png)
+
+The internal pipeline processes each annotation field through isolated stages:
+
+1. **Annotation Processing (`processor.py`)**: Orchestrates the processing of an individual annotation, including condition evaluation, data resolution, default merging, and formatting.
+2. **Visibility Check (`conditions.py`)**: Determines *"Should this field render?"*. If `False`, processing halts immediately and the field is marked as skipped.
+3. **Data Extraction (`resolver.py`)**: Resolves *"What value to extract?"* from the input JSON using the field's path expression.
+4. **Display Formatting (`formatter.py`)**: Determines *"How should it display?"*, applying currency symbols, decimal precision, or date formatting.
+5. **Contract Handoff (`ProcessedField`)**: Packages the resolved value, geometry, and style properties into a render-ready model.
+6. **Document Orchestration (`pipeline.py`)**: Applies annotation processing across the document and passes the resulting fields to the renderer.
+7. **PDF Placement (`renderer.py`)**: Places the final formatted values into the target PDF bounding boxes.
+
+---
+## 5. Project Structure
 
 ```
 tax-annotation-spec/
@@ -71,7 +77,7 @@ tax-annotation-spec/
 │   ├── form_annotations.json
 │   ├── render_demo.py
 │   └── sample_data.json
-├── src/
+└── src/
     ├── __init__.py
     ├── conditions.py
     ├── formatter.py
@@ -80,13 +86,13 @@ tax-annotation-spec/
     ├── processor.py
     ├── renderer.py
     └── resolver.py
-
 ```
 
 ---
 
-## 5. Annotation Schema & Top-Level Structure
-The JSON Schema Draft 2020-12 contract (`schema/annotation.schema.json`) enforces five mandatory top-level sections:
+## 6. Annotation Schema & Top-Level Structure
+
+The JSON Schema Draft 2020-12 contract (`schema/annotation.schema.json`) defines five mandatory top-level properties:
 
 ```json
 {
@@ -104,90 +110,129 @@ The JSON Schema Draft 2020-12 contract (`schema/annotation.schema.json`) enforce
     "format": { "type": "text" },
     "style": { "font_size": 10.0, "alignment": "left" }
   },
-  "annotations": [ ... ]
+  "annotations": [
+    {
+      "id": "taxpayer_name",
+      "label": "Taxpayer Name",
+      "source": "$.taxpayer.first_name",
+      "required": true,
+      "target": {
+        "page": 1,
+        "box": { "x": 220.0, "y": 140.0, "width": 250.0, "height": 18.0 }
+      }
+    }
+  ]
 }
 ```
 
-## 6. Supported JSONPath Subset
-To guarantee cross-language predictability and prevent script-injection risks, the resolver enforces a strictly validated subset:
-- Root: `$`
-- Object properties: `$.taxpayer` or `$.taxpayer.income.wages`
-- Zero-based array indexes: `$.dependents[0]` or `$.dependents[0].name`
-- Property names must start with a letter/underscore followed by letters, digits, or underscores.
-- **Not Supported by Design**: Wildcards (`*`), recursive descent (`..`), array slicing (`[:]`), filter expressions (`[?()]`), and embedded scripting.
+---
 
-## 7. Conditional Rendering
-An annotation may define an optional `condition` block:
-- **Supported Operators**: `equals`, `not_equals`, `greater_than`, `greater_than_or_equal`, `less_than`, `less_than_or_equal`.
-- **Short-Circuit Semantics**: Conditions are evaluated before resolving or formatting the primary field. If a condition evaluates to `False`, the field is marked as skipped immediately.
-- **Safe Fallback**: If a path referenced in a visibility condition does not exist in the data payload, the condition safely resolves to `False`.
+## 7. Supported JSONPath Subset
 
-## 8. Value Formatting
-The formatter converts raw data into presentation strings using exact decimal handling:
+To guarantee deterministic execution and cross-language compatibility, the resolver implements a secure, restricted path grammar:
 
-| Format Type | Description | Key Defaults / Semantics | Example |
+* **Root**: `$`
+* **Object Properties**: `$.taxpayer` or `$.taxpayer.income.wages`
+* **Zero-based Array Indices**: `$.dependents[0]` or `$.dependents[0].name`
+* **Identifier Rules**: Property names must begin with a letter or underscore, followed by alphanumeric characters or underscores.
+* **Unsupported by design**: Wildcards (`*`), recursive descent (`..`), slices (`[:]`), filter expressions (`[?()]`), and embedded scripts.
+
+---
+
+## 8. Conditional Rendering
+
+Field visibility is controlled via an optional `condition` object:
+
+* **Supported Operators**: `equals`, `not_equals`, `greater_than`, `greater_than_or_equal`, `less_than`, `less_than_or_equal`.
+* **Short-Circuit Evaluation**: Conditions are evaluated before source resolution. If a condition evaluates to `False`, the engine skips resolution, avoiding missing-property errors on optional fields.
+* **Safe Missing Fallback**: If a path referenced by a visibility condition does not exist in the source payload, the condition evaluates safely to `False`.
+
+---
+
+## 9. Value Formatting
+
+The formatter converts raw data primitives into presentation-ready strings using Python's `Decimal` module:
+
+| Format Type | Behavior & Defaults | Example Input | Formatted Output |
 |---|---|---|---|
-| text | Primitive string representation | Complex containers raise FormatError | "Jane" |
-| integer | Thousands separators | Non-integral floats raise FormatError | 115000 → "115,000" |
-| decimal | Fixed-point numeric | Defaults to decimal_places = 2 | 1234.5 → "1,234.50" |
-| currency | Currency symbols + separators | Default: USD ($), decimal_places = 2 | 115000 → "$115,000.00" |
-| percentage | Fractional input multiplied by 100 | Defaults to decimal_places = 2 | 0.15 → "15.00%" |
-| date | ISO 8601 string parsing | Default: date_format = "%m/%d/%Y" | "2025-04-15" → "04/15/2025" |
+| `text` | Direct string output; rejects complex containers | `"Jane"` | `"Jane"` |
+| `integer` | Thousands separators; rejects non-integral floats | `115000` | `"115,000"` |
+| `decimal` | Fixed precision; defaults to `decimal_places: 2` | `1234.5` | `"1,234.50"` |
+| `currency` | Currency symbols + separators; defaults to USD, 2 decimals | `115000` | `"$115,000.00"` |
+| `percentage` | Fractional input multiplied by 100; defaults to 2 decimals | `0.15` | `"15.00%"` |
+| `date` | Parses ISO 8601 strings; defaults to `date_format: "%m/%d/%Y"` | `"2025-04-15"` | `"04/15/2025"` |
 
-Booleans are strictly validated to prevent Python from implicitly coercing `True`/`False` to `1`/`0` in numeric formats.
+Booleans are strictly guarded to prevent implicit casting to numbers.
 
-## 9. Positioning & Coordinate System
-- **Unit**: PDF Points (`pt`, where $72\text{ pt} = 1\text{ inch}$).
-- **Origin**: `top-left` $(0,0)$ located at the upper-left corner of the page ($+X$ rightward, $+Y$ downward).
-- **Bounding Box**: Defined by `x`, `y`, `width` ($>0$), and `height` ($>0$).
-- **Page Indexing**: Annotation pages are 1-based (`page: 1` corresponds to internal PDF index 0).
+---
 
-## 10. Defaults and Single-Level Overrides
+## 10. Positioning & Coordinate System
+
+* **Units**: PDF Points (pt), where 72 pt = 1 inch.
+* **Origin**: top-left (0,0) located at the upper-left corner of each page (+X rightward, +Y downward).
+* **Bounding Box**: Rectangular region defined by `x`, `y`, `width` (> 0), and `height` (> 0).
+* **Page Indexing**: Annotations use 1-based indexing (`page: 1` maps to PDF index 0).
+
+---
+
+## 11. Defaults and Single-Level Overrides
+
 Document-level defaults provide fallback values for `format` and `style`:
-- **Precedence**: Annotation-level settings override matching document-level defaults.
-- **Merging**: Property-level merge occurs non-mutatively without complex cascading or CSS inheritance rules.
 
-## 11. PDF Rendering
-- Utilizes PyMuPDF (`fitz`) as the single rendering engine.
-- Overlays text onto the existing PDF template using `page.insert_textbox()`, preserving all vector lines, form titles, and background template contents.
-- Supports text alignments: `left`, `center`, and `right`.
-- Skipped annotations (due to false conditions or absent optional fields) are excluded from the rendering pass.
+* **Inheritance Model**: Single-level fallback. Properties explicitly defined on an annotation take precedence over matching document defaults.
+* **Immutability**: Merging produces a new effective specification without mutating the original configuration objects.
 
-## 12. Local Setup & Execution Instructions (Windows)
-Open PowerShell or Command Prompt in the repository root:
+---
 
-```cmd
-:: 1. Create a virtual environment
+## 12. PDF Rendering
+
+* Uses PyMuPDF (`fitz`) as the single PDF manipulation library.
+* Inserts text inside target bounding boxes using standard 14 fonts (Helvetica) ensuring consistent rendering across environments without external font asset dependencies.
+* Preserves underlying template graphics, lines, and background elements.
+* Supports left, center, and right text alignments.
+
+---
+
+## 13. Local Setup & End-to-End Demo
+
+### Installation (Windows)
+
+```
+# 1. Create and activate a virtual environment
 python -m venv .venv
-
-:: 2. Activate virtual environment
 .venv\Scripts\activate
 
-:: 3. Upgrade pip and install dependencies in editable mode
+# 2. Upgrade pip and install package dependencies
 pip install --upgrade pip
-pip install -e ".[dev]"
+pip install -e .
 ```
 
+### Run the Demo Pipeline
 
-### Run the End-to-End Demo
-```cmd
+```
 python -m examples.render_demo
 ```
 
-The annotated PDF will be generated at:
-`output/annotated_demo.pdf`
-
-## 13. Design Decisions
-- **Generic Over Form-Specific**: The schema and codebase make no assumptions about tax forms (e.g., IRS Form 1040) or jurisdictions.
-- **Deterministic JSONPath**: A restricted path grammar ensures fast, secure, cross-language parsing without third-party JSONPath dependencies.
-- **Exact Decimal Arithmetic**: Uses Python's `Decimal` module for currency, decimal, and percentage formatting to prevent IEEE-754 floating-point inaccuracies.
-- **Decoupled Orchestration**: The renderer consumes pre-computed `ProcessedField` records and has zero knowledge of JSONPaths, conditions, or defaults.
-- **Strict Typographical Bounds**: PyMuPDF standard-14 Helvetica (`helv`) is used to avoid external font file dependencies across platforms.
-
-## 14. Limitations & Future Enhancements
-- **Automatic Text Fitting**: Future iterations could dynamically adjust font sizes to fit constrained bounding boxes.
-- **Custom Font Embedding**: Support for custom OTF/TTF fonts and explicit text colors/borders.
-- **Complex Logic**: Future schema revisions could support composite boolean logic (AND/OR) for condition evaluation.
-- **Visual Regression Testing**: Automated pixel-level diffing in CI for rendered PDFs.
+The demo executes the entire pipeline:
+1. Validates `form_annotations.json` against the Pydantic domain models.
+2. Loads structured input data from `sample_data.json`.
+3. Creates the generic `demo_form.pdf` template if it does not already exist.
+4. Processes the annotations through resolution, conditional evaluation, formatting, and rendering.
+5. Writes the final annotated PDF to `output/annotated_demo.pdf`.
 
 ---
+
+## 14. Design Decisions
+
+* **Strict Declarative Contract**: Decouples data schemas from form layouts so form mappings can be authored as standard JSON without modifying the underlying execution engine.
+* **Deterministic Path Traversal**: Omitting arbitrary JSONPath expressions ensures execution is predictable, lightweight, and language-portable.
+* **Fixed-Point Arithmetic**: Formatter operations run through `Decimal` to avoid binary floating-point rounding artifacts.
+* **Decoupled Renderer**: The PDF rendering module accepts only `ProcessedField` primitives and has no awareness of JSONPaths, conditions, or raw datasets.
+
+---
+
+## 15. Limitations & Future Enhancements
+
+* **Dynamic Font Scaling**: Box boundaries currently use fixed font sizes; future versions could implement auto-shrinking text to fit restricted boundaries.
+* **Custom Typography**: Support for custom embedded OTF/TTF fonts, text colors, and stroke weights.
+* **Compound Logical Conditions**: Expanding single comparisons to include composite AND / OR condition blocks.
