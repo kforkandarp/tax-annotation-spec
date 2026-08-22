@@ -1,0 +1,26 @@
+{
+  "taxpayer": {
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "filing_status": "single",
+    "birth_date": "1988-04-12",
+    "is_blind": false,
+    "address": {
+      "street": "100 Market St",
+      "city": "San Francisco",
+      "state": "CA",
+      "zip": "94105"
+    },
+    "income": {
+      "wages": 115000,
+      "interest": 1250.75,
+      "foreign_rate": 0.15
+    }
+  },
+  "dependents": [
+    {
+      "name": "Alex Doe",
+      "relationship": "child"
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://instead.com/schemas/tax-annotation-spec/v1/annotation.schema.json",
+  "title": "TaxFormAnnotationDocument",
+  "description": "Language-independent declarative contract for mapping structured tax data onto target PDF form coordinates.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "form",
+    "coordinate_system",
+    "defaults",
+    "annotations"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "jsonPath": {
+      "type": "string",
+      "pattern": "^\\$(\\.[a-zA-Z_][a-zA-Z0-9_]*|\\[[0-9]+\\])*$",
+      "description": "Restricted JSONPath expression starting with $ and allowing only dot-property or zero-indexed array access."
+    },
+    "format": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["text", "integer", "decimal", "currency", "percentage", "date"]
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "3-letter ISO 4217 currency code (e.g., USD)."
+        },
+        "decimal_places": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "date_format": {
+          "type": "string",
+          "description": "Date format string (e.g., '%m/%d/%Y')."
+        }
+      }
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "font_size": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "alignment": {
+          "type": "string",
+          "enum": ["left", "center", "right"]
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of the annotation specification contract."
+    },
+    "form": {
+      "type": "object",
+      "required": ["id", "tax_year"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identifier for the target form."
+        },
+        "tax_year": {
+          "type": "integer",
+          "minimum": 1900,
+          "description": "Applicable tax year."
+        },
+        "revision": {
+          "type": "string",
+          "description": "Optional form revision string."
+        }
+      }
+    },
+    "coordinate_system": {
+      "type": "object",
+      "required": ["unit", "origin"],
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "type": "string",
+          "const": "pt"
+        },
+        "origin": {
+          "type": "string",
+          "const": "top-left"
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/format"
+        },
+        "style": {
+          "$ref": "#/$defs/style"
+        }
+      }
+    },
+    "annotations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "source",
+          "required",
+          "target"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier of the field annotation."
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable label for the field."
+          },
+          "source": {
+            "$ref": "#/$defs/jsonPath"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Indicates whether absence of source data is considered an error."
+          },
+          "condition": {
+            "type": "object",
+            "required": ["source", "operator", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "source": {
+                "$ref": "#/$defs/jsonPath"
+              },
+              "operator": {
+                "type": "string",
+                "enum": [
+                  "equals",
+                  "not_equals",
+                  "greater_than",
+                  "greater_than_or_equal",
+                  "less_than",
+                  "less_than_or_equal"
+                ]
+              },
+              "value": {
+                "type": ["string", "number", "boolean"]
+              }
+            }
+          },
+          "target": {
+            "type": "object",
+            "required": ["page", "box"],
+            "additionalProperties": false,
+            "properties": {
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "box": {
+                "type": "object",
+                "required": ["x", "y", "width", "height"],
+                "additionalProperties": false,
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "width": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "height": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "format": {
+            "$ref": "#/$defs/format"
+          },
+          "style": {
+            "$ref": "#/$defs/style"
+          }
+        }
+      }
+    }
+  }
+}

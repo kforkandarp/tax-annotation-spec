@@ -1,0 +1,111 @@
+{
+  "schema_version": "1.0",
+  "form": {
+    "id": "GENERIC-TAX-01",
+    "tax_year": 2025,
+    "revision": "v1.0"
+  },
+  "coordinate_system": {
+    "unit": "pt",
+    "origin": "top-left"
+  },
+  "defaults": {
+    "format": {
+      "type": "text"
+    },
+    "style": {
+      "font_size": 10.0,
+      "alignment": "left"
+    }
+  },
+  "annotations": [
+    {
+      "id": "taxpayer_name",
+      "label": "Taxpayer Name",
+      "source": "$.taxpayer.first_name",
+      "required": true,
+      "target": {
+        "page": 1,
+        "box": { "x": 220.0, "y": 140.0, "width": 250.0, "height": 18.0 }
+      }
+    },
+    {
+      "id": "taxpayer_filing_status",
+      "label": "Filing Status",
+      "source": "$.taxpayer.filing_status",
+      "required": true,
+      "target": {
+        "page": 1,
+        "box": { "x": 220.0, "y": 175.0, "width": 250.0, "height": 18.0 }
+      },
+      "style": {
+        "alignment": "center"
+      }
+    },
+    {
+      "id": "taxpayer_wages",
+      "label": "Annual Wages",
+      "source": "$.taxpayer.income.wages",
+      "required": true,
+      "condition": {
+        "source": "$.taxpayer.income.wages",
+        "operator": "greater_than",
+        "value": 0
+      },
+      "target": {
+        "page": 1,
+        "box": { "x": 220.0, "y": 210.0, "width": 250.0, "height": 18.0 }
+      },
+      "format": {
+        "type": "currency",
+        "currency": "USD",
+        "decimal_places": 2
+      },
+      "style": {
+        "alignment": "right"
+      }
+    },
+    {
+      "id": "foreign_tax_rate",
+      "label": "Foreign Income Rate",
+      "source": "$.taxpayer.income.foreign_rate",
+      "required": false,
+      "target": {
+        "page": 1,
+        "box": { "x": 220.0, "y": 245.0, "width": 250.0, "height": 18.0 }
+      },
+      "format": {
+        "type": "percentage",
+        "decimal_places": 2
+      },
+      "style": {
+        "alignment": "right"
+      }
+    },
+    {
+      "id": "spouse_name_conditional",
+      "label": "Spouse Name",
+      "source": "$.taxpayer.spouse.name",
+      "required": false,
+      "condition": {
+        "source": "$.taxpayer.filing_status",
+        "operator": "equals",
+        "value": "married_filing_jointly"
+      },
+      "target": {
+        "page": 1,
+        "box": { "x": 220.0, "y": 280.0, "width": 250.0, "height": 18.0 }
+      }
+    },
+    {
+      "id": "first_dependent",
+      "label": "Primary Dependent Name",
+      "source": "$.dependents[0].name",
+      "required": false,
+      "target": {
+        "page": 2,
+        "box": { "x": 220.0, "y": 140.0, "width": 250.0, "height": 18.0 }
+      }
+    }
+  ]
+}
