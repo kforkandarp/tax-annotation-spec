@@ -2,6 +2,12 @@
 
 A declarative, language-independent specification and Python reference implementation for resolving structured JSON data, evaluating conditional visibility, formatting values, and rendering fields onto PDF form templates.
 
+### 🎥 Technical Walkthrough
+
+[▶ Watch the Loom walkthrough](https://www.loom.com/share/3fd1800508c8472d9bf729216e9c77cc)
+
+A short walkthrough covering the problem, architecture, annotation contract, processing pipeline, implementation, and end-to-end PDF rendering demo.
+
 ---
 
 ## 1. Project Overview
